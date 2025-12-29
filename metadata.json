@@ -1,0 +1,5 @@
+{
+  "name": "DevLog AI",
+  "description": "A smart work journal that uses AI to tag, summarize, and visualize your daily engineering work, turning fragments into growth tracking.",
+  "requestFramePermissions": []
+}
