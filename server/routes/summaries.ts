@@ -36,18 +36,22 @@ router.post('/:date/generate', async (req, res) => {
     try {
         const { date } = req.params;
 
-        // Get logs for that date
-        const dateStart = new Date(date);
-        dateStart.setHours(0, 0, 0, 0);
-        const dateEnd = new Date(date);
-        dateEnd.setHours(23, 59, 59, 999);
+        // Parse date as local timezone (YYYY-MM-DD format)
+        // Create date range for the specified day in local time
+        const [year, month, day] = date.split('-').map(Number);
+        const dateStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+        const dateEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
 
-        // Get all logs and filter by date (simpler approach than raw SQL date comparison)
+        console.log(`[Summaries] Generating recap for ${date}, range: ${dateStart.toISOString()} to ${dateEnd.toISOString()}`);
+
+        // Get all logs and filter by date (comparing in local time)
         const allLogs = await db.select().from(schema.logs);
         const dateLogs = allLogs.filter(log => {
             const logDate = new Date(log.timestamp);
             return logDate >= dateStart && logDate <= dateEnd;
         });
+
+        console.log(`[Summaries] Found ${dateLogs.length} logs for ${date}`);
 
         if (dateLogs.length === 0) {
             return res.status(404).json({ error: 'No logs found for this date' });
@@ -56,7 +60,7 @@ router.post('/:date/generate', async (req, res) => {
         // Generate summary using AI
         const summary = await geminiService.generateDailySummary(
             date,
-            dateLogs.map(l => ({ timestamp: l.timestamp, content: l.content }))
+            dateLogs.map(l => ({ timestamp: l.timestamp, content: l.content, source: l.source }))
         );
 
         // Check if summary exists

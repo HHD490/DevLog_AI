@@ -17,6 +17,9 @@ import githubRoutes from './routes/github';
 // Import scheduler
 import { initScheduler } from './services/schedulerService';
 
+// Import AI provider for status
+import { getCurrentProviderName } from './services/aiProvider';
+
 // Initialize database (this creates tables if they don't exist)
 import { db, schema } from './db';
 import { sql } from 'drizzle-orm';
@@ -48,7 +51,8 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    aiProvider: getCurrentProviderName()
   });
 });
 

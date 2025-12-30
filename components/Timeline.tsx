@@ -14,20 +14,20 @@ export const Timeline: React.FC<TimelineProps> = ({ logs, dailySummaries, onGene
   const groupedLogs = useMemo(() => {
     const groups: Record<string, LogEntry[]> = {};
     logs.forEach(log => {
-      const date = new Date(log.timestamp).toLocaleDateString();
+      // Use YYYY-MM-DD format for consistent grouping (local timezone)
+      const d = new Date(log.timestamp);
+      const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       if (!groups[date]) groups[date] = [];
       groups[date].push(log);
     });
-    return Object.entries(groups).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime());
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [logs]);
 
   const handleGenerateSummary = async (date: string) => {
     setGeneratingFor(date);
     try {
-      // Convert display date back to API date format (YYYY-MM-DD)
-      const dateObj = new Date(date);
-      const apiDate = dateObj.toISOString().split('T')[0];
-      await onGenerateSummary(apiDate);
+      // date is already in YYYY-MM-DD format, pass directly to API
+      await onGenerateSummary(date);
     } catch (e) {
       console.error(e);
       alert("Failed to generate summary");

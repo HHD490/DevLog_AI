@@ -1,25 +1,27 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+/**
+ * AI Service - Unified AI functions using the provider abstraction
+ * Supports DeepSeek (default) and Gemini as providers
+ */
+
+import { getAIProvider } from './aiProvider';
 import { Tag, DailySummary, Skill } from './types';
 
-const getAI = () => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        throw new Error('GEMINI_API_KEY is not set');
-    }
-    return new GoogleGenerativeAI(apiKey);
-};
+/**
+ * Helper to parse JSON from AI response (handles markdown code blocks)
+ */
+function parseJsonResponse(responseText: string): any {
+    const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) ||
+        responseText.match(/\{[\s\S]*\}/);
+    const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : responseText;
+    return JSON.parse(jsonStr);
+}
 
-// Model constants
-const FAST_MODEL = 'gemini-2.0-flash';
-const REASONING_MODEL = 'gemini-2.0-flash';
-
-export const geminiService = {
+export const aiService = {
     /**
      * Analyzes raw text input and extracts structured tags + a micro summary.
      */
     processEntry: async (text: string): Promise<{ tags: Tag[], summary: string }> => {
-        const ai = getAI();
-        const model = ai.getGenerativeModel({ model: FAST_MODEL });
+        const provider = getAIProvider();
 
         const prompt = `Analyze this developer work log entry: "${text}". 
     1. Extract technical tags (Language, Framework, Concept, Task).
@@ -31,22 +33,15 @@ export const geminiService = {
       "tags": [{"name": "string", "category": "Language|Framework|Concept|Task|Other"}]
     }`;
 
-        const result = await model.generateContent(prompt);
-        const response = result.response;
-        const responseText = response.text();
-
         try {
-            // Extract JSON from response (handle markdown code blocks)
-            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) ||
-                responseText.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : responseText;
-            const json = JSON.parse(jsonStr);
+            const responseText = await provider.generateContent(prompt);
+            const json = parseJsonResponse(responseText);
             return {
                 tags: json.tags || [],
                 summary: json.summary || text.substring(0, 50)
             };
         } catch (e) {
-            console.error('Failed to parse AI response:', e);
+            console.error('Failed to process entry:', e);
             return { tags: [], summary: text.substring(0, 50) };
         }
     },
@@ -55,9 +50,7 @@ export const geminiService = {
      * Batch process multiple entries for tag extraction
      */
     batchProcessEntries: async (entries: { id: string, content: string }[]): Promise<Map<string, { tags: Tag[], summary: string }>> => {
-        const ai = getAI();
-        const model = ai.getGenerativeModel({ model: FAST_MODEL });
-
+        const provider = getAIProvider();
         const entriesText = entries.map((e, i) => `[${i}] ${e.content}`).join('\n\n');
 
         const prompt = `Analyze these developer work log entries and extract tags and summaries for each:
@@ -74,16 +67,11 @@ Respond in JSON format:
   ]
 }`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-
         const resultMap = new Map<string, { tags: Tag[], summary: string }>();
 
         try {
-            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) ||
-                responseText.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : responseText;
-            const json = JSON.parse(jsonStr);
+            const responseText = await provider.generateContent(prompt);
+            const json = parseJsonResponse(responseText);
 
             for (const r of json.results || []) {
                 const entry = entries[r.index];
@@ -106,8 +94,7 @@ Respond in JSON format:
      * Identifies GitHub commits and provides AI-enhanced interpretation.
      */
     generateDailySummary: async (date: string, logs: { timestamp: number, content: string, source?: string }[]): Promise<DailySummary> => {
-        const ai = getAI();
-        const model = ai.getGenerativeModel({ model: FAST_MODEL });
+        const provider = getAIProvider();
 
         // Separate manual logs from GitHub commits
         const manualLogs = logs.filter(l => l.source !== 'github');
@@ -145,22 +132,21 @@ Output a structured summary in JSON format:
   "techStackUsed": ["tech1", "tech2"]
 }`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        console.log('[AI] Generating daily summary for', date, 'with', logs.length, 'logs');
 
         try {
-            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) ||
-                responseText.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : responseText;
-            const json = JSON.parse(jsonStr);
+            const responseText = await provider.generateContent(prompt);
+            console.log('[AI] Response received, length:', responseText.length);
+
+            const json = parseJsonResponse(responseText);
             return {
                 date,
                 content: json.content || 'No summary available.',
                 keyAchievements: json.keyAchievements || [],
                 techStackUsed: json.techStackUsed || []
             };
-        } catch (e) {
-            console.error('Failed to parse daily summary response:', e);
+        } catch (e: any) {
+            console.error('[AI] Failed to generate daily summary:', e.message || e);
             return {
                 date,
                 content: 'Failed to generate summary.',
@@ -174,8 +160,7 @@ Output a structured summary in JSON format:
      * "Ask The Brain" - RAG implementation.
      */
     askBrain: async (query: string, allLogs: { timestamp: number, content: string, tags: Tag[] }[]): Promise<string> => {
-        const ai = getAI();
-        const model = ai.getGenerativeModel({ model: REASONING_MODEL });
+        const provider = getAIProvider();
 
         const context = allLogs.slice(0, 100).map(l =>
             `Date: ${new Date(l.timestamp).toLocaleDateString()} Content: ${l.content} Tags: ${l.tags.map(t => t.name).join(', ')}`
@@ -190,16 +175,20 @@ Answer the question based strictly on my work history provided above.
 If I solved a similar problem before, explain how I did it. 
 If not found in context, say so, but offer general advice based on your knowledge.`;
 
-        const result = await model.generateContent(prompt);
-        return result.response.text() || "I couldn't generate an answer.";
+        try {
+            const response = await provider.generateContent(prompt);
+            return response || "I couldn't generate an answer.";
+        } catch (e) {
+            console.error('[AI] Ask Brain failed:', e);
+            return "Failed to generate an answer. Please try again.";
+        }
     },
 
     /**
      * Generates a Blog Post from a range of logs.
      */
     generateBlog: async (logs: { timestamp: number, content: string }[], periodName: string): Promise<{ title: string, content: string }> => {
-        const ai = getAI();
-        const model = ai.getGenerativeModel({ model: REASONING_MODEL });
+        const provider = getAIProvider();
 
         const context = logs.map(l => `[${new Date(l.timestamp).toLocaleDateString()}] ${l.content}`).join('\n');
 
@@ -221,20 +210,15 @@ Respond in JSON format:
   "content": "markdown string"
 }`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-
         try {
-            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) ||
-                responseText.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : responseText;
-            const json = JSON.parse(jsonStr);
+            const responseText = await provider.generateContent(prompt);
+            const json = parseJsonResponse(responseText);
             return {
                 title: json.title || `Dev Log: ${periodName}`,
                 content: json.content || 'Could not generate blog content.'
             };
         } catch (e) {
-            console.error('Failed to parse blog response:', e);
+            console.error('[AI] Blog generation failed:', e);
             return {
                 title: `Dev Log: ${periodName}`,
                 content: 'Could not generate blog content.'
@@ -250,8 +234,7 @@ Respond in JSON format:
         newSummaries: { date: string, content: string, techStackJson: string }[],
         existingSkillTree: Skill[]
     }): Promise<{ skills: Partial<Skill>[] }> => {
-        const ai = getAI();
-        const model = ai.getGenerativeModel({ model: REASONING_MODEL });
+        const provider = getAIProvider();
 
         const logsContext = params.newLogs.map(l => {
             const tags = JSON.parse(l.tagsJson || '[]');
@@ -299,18 +282,16 @@ Respond in JSON format:
 
 Only include skills that have strong evidence in the new data. Set maturityLevel to at least the existing level if updating.`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-
         try {
-            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) ||
-                responseText.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : responseText;
-            const json = JSON.parse(jsonStr);
+            const responseText = await provider.generateContent(prompt);
+            const json = parseJsonResponse(responseText);
             return { skills: json.skills || [] };
         } catch (e) {
-            console.error('Failed to parse skill tree response:', e);
+            console.error('[AI] Skill tree analysis failed:', e);
             return { skills: [] };
         }
     }
 };
+
+// Export for backward compatibility (rename from geminiService)
+export const geminiService = aiService;
