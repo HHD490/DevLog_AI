@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { X, Mic, Image as ImageIcon, Loader2, Sparkles } from 'lucide-react';
-import { geminiService } from '../services/geminiService';
-import { LogEntry } from '../types';
 
 interface InputModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (entry: LogEntry) => void;
+  onSave: (content: string) => Promise<void>;
 }
 
 export const InputModal: React.FC<InputModalProps> = ({ isOpen, onClose, onSave }) => {
@@ -20,23 +18,12 @@ export const InputModal: React.FC<InputModalProps> = ({ isOpen, onClose, onSave 
 
     setIsProcessing(true);
     try {
-      const { tags, summary } = await geminiService.processEntry(content);
-      
-      const newEntry: LogEntry = {
-        id: crypto.randomUUID(),
-        content,
-        timestamp: Date.now(),
-        tags,
-        source: 'manual',
-        summary
-      };
-
-      onSave(newEntry);
+      await onSave(content);
       setContent('');
       onClose();
     } catch (error) {
       console.error(error);
-      alert('Failed to process entry via AI. Check your API Key.');
+      alert('Failed to save entry. Check if the backend is running.');
     } finally {
       setIsProcessing(false);
     }
@@ -55,7 +42,7 @@ export const InputModal: React.FC<InputModalProps> = ({ isOpen, onClose, onSave 
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <div className="p-6 space-y-4">
           <textarea
             value={content}
@@ -66,26 +53,26 @@ export const InputModal: React.FC<InputModalProps> = ({ isOpen, onClose, onSave 
           />
 
           <div className="flex items-center justify-between text-slate-500">
-             <div className="flex space-x-2">
-                <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors" title="Attach Image (Demo)">
-                    <ImageIcon className="w-5 h-5" />
-                </button>
-                <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors" title="Voice Input (Demo)">
-                    <Mic className="w-5 h-5" />
-                </button>
-             </div>
-             <span className="text-xs">AI will auto-tag</span>
+            <div className="flex space-x-2">
+              <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors" title="Attach Image (Demo)">
+                <ImageIcon className="w-5 h-5" />
+              </button>
+              <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors" title="Voice Input (Demo)">
+                <Mic className="w-5 h-5" />
+              </button>
+            </div>
+            <span className="text-xs">AI will auto-tag</span>
           </div>
         </div>
 
         <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-          <button 
+          <button
             onClick={onClose}
             className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition-colors"
           >
             Cancel
           </button>
-          <button 
+          <button
             onClick={handleSubmit}
             disabled={isProcessing || !content.trim()}
             className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"

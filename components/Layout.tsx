@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, History, BrainCircuit, PenTool, Settings, Plus } from 'lucide-react';
+import { LayoutDashboard, History, BrainCircuit, PenTool, TreePine, Settings, Plus } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,6 +14,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onChangeVi
     { id: 'timeline', icon: History, label: 'Timeline' },
     { id: 'brain', icon: BrainCircuit, label: 'Ask Brain' },
     { id: 'blog', icon: PenTool, label: 'Auto-Blog' },
+    { id: 'skills', icon: TreePine, label: 'Skill Tree' },
     { id: 'settings', icon: Settings, label: 'Settings' },
   ];
 
@@ -34,11 +35,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onChangeVi
               <button
                 key={item.id}
                 onClick={() => onChangeView(item.id)}
-                className={`w-full flex items-center justify-center lg:justify-start p-3 rounded-xl transition-all duration-200 ${
-                  activeView === item.id
+                className={`w-full flex items-center justify-center lg:justify-start p-3 rounded-xl transition-all duration-200 ${activeView === item.id
                     ? 'bg-indigo-50 text-indigo-600 font-medium'
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 <item.icon className="w-6 h-6 lg:w-5 lg:h-5 lg:mr-3" strokeWidth={2} />
                 <span className="hidden lg:block">{item.label}</span>
