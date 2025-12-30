@@ -180,10 +180,10 @@ export const Settings: React.FC<SettingsProps> = ({ onSyncGithub }) => {
         <h3 className="text-lg font-bold text-slate-800 mb-4">System Status</h3>
         <div className="space-y-3">
           <div className={`flex items-center gap-2 p-3 rounded-lg border ${backendStatus === 'online'
-              ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
-              : backendStatus === 'offline'
-                ? 'text-red-600 bg-red-50 border-red-100'
-                : 'text-slate-600 bg-slate-50 border-slate-100'
+            ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
+            : backendStatus === 'offline'
+              ? 'text-red-600 bg-red-50 border-red-100'
+              : 'text-slate-600 bg-slate-50 border-slate-100'
             }`}>
             {backendStatus === 'online' ? (
               <CheckCircle2 className="w-5 h-5" />
@@ -256,14 +256,184 @@ export const Settings: React.FC<SettingsProps> = ({ onSyncGithub }) => {
                   {isSyncing ? 'Syncing...' : 'Sync Now'}
                 </button>
                 <button
-                  onClick={handleDisconnectGitHub}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Disconnect GitHub"
+                  onClick={() => {
+                    setShowGitHubSetup(true);
+                    setSelectedRepos(githubConfig.selectedRepos);
+                    setIncludeActivities(githubConfig.includeActivities);
+                  }}
+                  className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                  title="Edit Settings"
                 >
-                  <X className="w-5 h-5" />
+                  <SettingsIcon className="w-5 h-5" />
                 </button>
               </div>
             </div>
+
+            {/* Edit Settings Panel */}
+            {showGitHubSetup && (
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-4">
+                <h4 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <SettingsIcon className="w-4 h-4" />
+                  Edit GitHub Settings
+                </h4>
+
+                {/* Load Repos Button */}
+                <div>
+                  <button
+                    onClick={handleLoadRepos}
+                    disabled={loadingRepos}
+                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-white text-sm"
+                  >
+                    {loadingRepos ? 'Loading...' : 'Refresh Repository List'}
+                  </button>
+                </div>
+
+                {/* Repo Selection */}
+                {availableRepos.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      <Filter className="w-4 h-4 inline mr-1" />
+                      Select Repositories
+                    </label>
+                    <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1 bg-white">
+                      <label className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer border-b border-slate-100">
+                        <input
+                          type="checkbox"
+                          checked={selectedRepos.length === 0}
+                          onChange={() => setSelectedRepos([])}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-sm text-slate-700 font-medium">📁 All Repositories</span>
+                      </label>
+                      {availableRepos.map(repo => (
+                        <label key={repo.full_name} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedRepos.includes(repo.name)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRepos([...selectedRepos, repo.name]);
+                              } else {
+                                setSelectedRepos(selectedRepos.filter(r => r !== repo.name));
+                              }
+                            }}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="text-sm text-slate-700">{repo.full_name}</span>
+                          {repo.private && (
+                            <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">private</span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Include Activities Toggle */}
+                <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-white cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeActivities}
+                    onChange={(e) => setIncludeActivities(e.target.checked)}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-slate-700">Include Activities</span>
+                    <p className="text-xs text-slate-500">Sync issues, PRs, and reviews</p>
+                  </div>
+                </label>
+
+                {/* Update Token */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Update Token (optional)
+                  </label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input
+                      type="password"
+                      value={githubToken}
+                      onChange={(e) => setGithubToken(e.target.value)}
+                      placeholder="Leave empty to keep current token"
+                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                </div>
+
+                {configError && (
+                  <div className="p-2 bg-red-50 border border-red-100 rounded-lg text-red-600 text-sm">
+                    {configError}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2 justify-between pt-2 border-t border-slate-200">
+                  <button
+                    onClick={handleDisconnectGitHub}
+                    className="px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium flex items-center gap-1"
+                  >
+                    <X className="w-4 h-4" />
+                    Disconnect
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowGitHubSetup(false);
+                        setGithubToken('');
+                        setConfigError(null);
+                      }}
+                      className="px-3 py-1.5 text-slate-600 hover:bg-slate-200 rounded-lg text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setSavingConfig(true);
+                        setConfigError(null);
+                        try {
+                          const config: any = {
+                            selectedRepos: selectedRepos.length > 0 ? selectedRepos : [],
+                            includeActivities
+                          };
+                          // Only update token if provided
+                          if (githubToken.trim()) {
+                            config.token = githubToken;
+                          } else {
+                            // Use existing token - need to pass it
+                            const tokenRow = await fetch('/api/github/config');
+                            // Actually we need the backend to handle "keep existing token" case
+                            // For now, let's require token if updating
+                          }
+
+                          // Call update API
+                          await apiService.saveGitHubConfig({
+                            token: githubToken || 'KEEP_EXISTING', // Backend should handle this
+                            selectedRepos: selectedRepos.length > 0 ? selectedRepos : undefined,
+                            includeActivities
+                          });
+
+                          setGithubConfig(prev => prev ? {
+                            ...prev,
+                            selectedRepos,
+                            includeActivities
+                          } : null);
+                          setShowGitHubSetup(false);
+                          setGithubToken('');
+                        } catch (e: any) {
+                          setConfigError(e.message || 'Failed to update settings');
+                        } finally {
+                          setSavingConfig(false);
+                        }
+                      }}
+                      disabled={savingConfig}
+                      className="px-3 py-1.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm"
+                    >
+                      {savingConfig ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <p className="text-xs text-slate-500">
               💡 GitHub will auto-sync at 23:43 daily before the Daily Recap is generated.

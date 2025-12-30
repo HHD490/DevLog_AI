@@ -33,17 +33,50 @@ router.post('/config', async (req, res) => {
     try {
         const { token, selectedRepos, includeActivities } = req.body;
 
-        if (!token) {
-            return res.status(400).json({ error: 'Token is required' });
+        let actualToken = token;
+        let username: string;
+
+        // Handle "keep existing token" case
+        if (token === 'KEEP_EXISTING' || !token) {
+            const existingTokenRow = await db.select().from(schema.appState).where(eq(schema.appState.key, 'github_token'));
+            const existingUsernameRow = await db.select().from(schema.appState).where(eq(schema.appState.key, 'github_username'));
+
+            if (!existingTokenRow[0]?.value) {
+                return res.status(400).json({ error: 'No existing token found. Please provide a token.' });
+            }
+
+            actualToken = existingTokenRow[0].value;
+            username = existingUsernameRow[0]?.value || '';
+        } else {
+            // Validate new token by fetching user info
+            const user = await githubService.getAuthenticatedUser(token);
+            username = user.login;
+
+            // Save the new token
+            const tokenConfig = { key: 'github_token', value: token };
+            const existingToken = await db.select().from(schema.appState).where(eq(schema.appState.key, 'github_token'));
+            if (existingToken.length > 0) {
+                await db.update(schema.appState)
+                    .set({ value: token, updatedAt: new Date() })
+                    .where(eq(schema.appState.key, 'github_token'));
+            } else {
+                await db.insert(schema.appState).values(tokenConfig);
+            }
+
+            // Save username
+            const usernameConfig = { key: 'github_username', value: username };
+            const existingUsername = await db.select().from(schema.appState).where(eq(schema.appState.key, 'github_username'));
+            if (existingUsername.length > 0) {
+                await db.update(schema.appState)
+                    .set({ value: username, updatedAt: new Date() })
+                    .where(eq(schema.appState.key, 'github_username'));
+            } else {
+                await db.insert(schema.appState).values(usernameConfig);
+            }
         }
 
-        // Validate token by fetching user info
-        const user = await githubService.getAuthenticatedUser(token);
-
-        // Save config to app_state
+        // Always update repos and activities settings
         const configs = [
-            { key: 'github_token', value: token },
-            { key: 'github_username', value: user.login },
             { key: 'github_repos', value: JSON.stringify(selectedRepos || []) },
             { key: 'github_include_activities', value: String(includeActivities ?? true) }
         ];
@@ -61,8 +94,8 @@ router.post('/config', async (req, res) => {
 
         res.json({
             success: true,
-            username: user.login,
-            message: `GitHub connected as ${user.login}`
+            username,
+            message: `GitHub settings updated`
         });
     } catch (error: any) {
         console.error('Error saving GitHub config:', error);
