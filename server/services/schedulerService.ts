@@ -97,7 +97,7 @@ async function generateDailyRecapIfNeeded(): Promise<void> {
     try {
         const summary = await geminiService.generateDailySummary(
             todayStr,
-            todayLogs.map(l => ({ timestamp: l.timestamp, content: l.content }))
+            todayLogs.map(l => ({ timestamp: l.timestamp, content: l.content, source: l.source }))
         );
 
         // Upsert the summary

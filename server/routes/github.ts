@@ -155,14 +155,17 @@ export async function syncGitHubToLogs(): Promise<{
         existingShasRow[0]?.value ? JSON.parse(existingShasRow[0].value) : []
     );
 
-    // Determine since date (last sync or 30 days ago)
+    // Determine since date (last sync minus buffer, or 30 days ago)
+    // We subtract 1 hour buffer to account for GitHub API delays
     const lastSync = lastSyncRow[0]?.value ? new Date(lastSyncRow[0].value) : undefined;
-    const since = lastSync || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const sinceWithBuffer = lastSync
+        ? new Date(lastSync.getTime() - 60 * 60 * 1000) // 1 hour buffer
+        : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    console.log(`[GitHub] Syncing since ${since.toISOString()}`);
+    console.log(`[GitHub] Syncing since ${sinceWithBuffer.toISOString()} (with 1h buffer)`);
 
     // Fetch and process GitHub activity
-    const syncResult = await githubService.syncGitHubActivity(config, existingShas, since);
+    const syncResult = await githubService.syncGitHubActivity(config, existingShas, sinceWithBuffer);
 
     // Save new commits/activities as logs
     for (const commit of syncResult.commits) {

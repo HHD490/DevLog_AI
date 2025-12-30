@@ -19,6 +19,7 @@ interface GitHubCommit {
     date: string;
     repo: string;
     url: string;
+    needsMessageFetch?: boolean;
 }
 
 interface SyncResult {
@@ -65,6 +66,35 @@ export const githubService = {
         }
 
         return response.json();
+    },
+
+    /**
+     * Fetch commit details by SHA to get the actual commit message
+     */
+    async getCommitDetails(token: string, repoFullName: string, sha: string): Promise<{ message: string } | null> {
+        try {
+            const response = await fetch(
+                `${GITHUB_API_BASE}/repos/${repoFullName}/commits/${sha}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'X-GitHub-Api-Version': '2022-11-28'
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                console.error(`[GitHub] Failed to fetch commit ${sha}: ${response.status}`);
+                return null;
+            }
+
+            const data = await response.json();
+            return { message: data.commit?.message || '' };
+        } catch (error) {
+            console.error(`[GitHub] Error fetching commit ${sha}:`, error);
+            return null;
+        }
     },
 
     /**
@@ -158,24 +188,44 @@ export const githubService = {
      */
     extractCommitsFromEvents(events: GitHubEvent[], config: GitHubConfig): GitHubCommit[] {
         const commits: GitHubCommit[] = [];
+        // selectedRepos can be either "repo" or "owner/repo" format
         const selectedRepos = config.selectedRepos && config.selectedRepos.length > 0
             ? new Set(config.selectedRepos)
             : null;
 
         for (const event of events) {
             // Filter by selected repos if specified
-            if (selectedRepos && !selectedRepos.has(event.repo.name)) {
-                continue;
+            // event.repo.name is in format "owner/repo", so check both formats
+            if (selectedRepos) {
+                const repoFullName = event.repo.name; // "HHD490/DevLog_AI"
+                const repoShortName = event.repo.name.split('/').pop() || ''; // "DevLog_AI"
+                if (!selectedRepos.has(repoFullName) && !selectedRepos.has(repoShortName)) {
+                    continue;
+                }
             }
 
-            if (event.type === 'PushEvent' && event.payload.commits) {
-                for (const commit of event.payload.commits) {
+            if (event.type === 'PushEvent') {
+                // GitHub Events API sometimes returns commits array, sometimes just head/before
+                if (event.payload.commits && event.payload.commits.length > 0) {
+                    for (const commit of event.payload.commits) {
+                        commits.push({
+                            sha: commit.sha,
+                            message: commit.message,
+                            date: event.created_at,
+                            repo: event.repo.name,
+                            url: `https://github.com/${event.repo.name}/commit/${commit.sha}`,
+                            needsMessageFetch: false
+                        });
+                    }
+                } else if (event.payload.head) {
+                    // Mark this commit as needing message fetch
                     commits.push({
-                        sha: commit.sha,
-                        message: commit.message,
+                        sha: event.payload.head,
+                        message: '', // Will be fetched later
                         date: event.created_at,
                         repo: event.repo.name,
-                        url: `https://github.com/${event.repo.name}/commit/${commit.sha}`
+                        url: `https://github.com/${event.repo.name}/commit/${event.payload.head}`,
+                        needsMessageFetch: true
                     });
                 }
             }
@@ -197,8 +247,13 @@ export const githubService = {
 
         for (const event of events) {
             // Filter by selected repos if specified
-            if (selectedRepos && !selectedRepos.has(event.repo.name)) {
-                continue;
+            // event.repo.name is in format "owner/repo", so check both formats
+            if (selectedRepos) {
+                const repoFullName = event.repo.name;
+                const repoShortName = event.repo.name.split('/').pop() || '';
+                if (!selectedRepos.has(repoFullName) && !selectedRepos.has(repoShortName)) {
+                    continue;
+                }
             }
 
             let content = '';
@@ -282,15 +337,29 @@ export const githubService = {
                     continue;
                 }
 
+                let message = commit.message;
+
+                // Fetch actual commit message if needed
+                if (commit.needsMessageFetch) {
+                    console.log(`[GitHub] Fetching commit message for ${commit.sha.substring(0, 7)}...`);
+                    const details = await this.getCommitDetails(config.token, commit.repo, commit.sha);
+                    if (details && details.message) {
+                        message = details.message;
+                    } else {
+                        // Fallback if fetch fails
+                        message = `Push to ${commit.repo.split('/').pop()} branch`;
+                    }
+                }
+
                 // Extract tags using local rules
-                const tags = matchLocalTags(commit.message);
+                const tags = matchLocalTags(message);
 
                 // Generate summary (first line of commit message)
-                const summary = commit.message.split('\n')[0].substring(0, 80);
+                const summary = message.split('\n')[0].substring(0, 80);
 
                 result.commits.push({
                     sha: commit.sha,
-                    content: `[${commit.repo}] ${commit.message}`,
+                    content: `[${commit.repo}] ${message}`,
                     timestamp: new Date(commit.date).getTime(),
                     repo: commit.repo,
                     tags,

@@ -103,19 +103,44 @@ Respond in JSON format:
 
     /**
      * Generates a structured daily summary from a list of logs.
+     * Identifies GitHub commits and provides AI-enhanced interpretation.
      */
-    generateDailySummary: async (date: string, logs: { timestamp: number, content: string }[]): Promise<DailySummary> => {
+    generateDailySummary: async (date: string, logs: { timestamp: number, content: string, source?: string }[]): Promise<DailySummary> => {
         const ai = getAI();
         const model = ai.getGenerativeModel({ model: FAST_MODEL });
 
-        const logsText = logs.map(l => `- [${new Date(l.timestamp).toLocaleTimeString()}] ${l.content}`).join('\n');
+        // Separate manual logs from GitHub commits
+        const manualLogs = logs.filter(l => l.source !== 'github');
+        const githubLogs = logs.filter(l => l.source === 'github');
+
+        const manualLogsText = manualLogs.length > 0
+            ? manualLogs.map(l => `- [${new Date(l.timestamp).toLocaleTimeString()}] ${l.content}`).join('\n')
+            : '(No manual logs today)';
+
+        const githubLogsText = githubLogs.length > 0
+            ? githubLogs.map(l => `- [${new Date(l.timestamp).toLocaleTimeString()}] ${l.content}`).join('\n')
+            : '';
 
         const prompt = `You are a Senior Technical Lead. Summarize my work for ${date} based on these logs:
-${logsText}
+
+=== MANUAL WORK LOGS ===
+${manualLogsText}
+
+${githubLogs.length > 0 ? `=== GITHUB COMMITS (Need Interpretation) ===
+${githubLogsText}
+
+Note: The GitHub commits above are raw commit messages synced from my repositories. 
+Please interpret what kind of work these commits represent based on:
+- Repository names (e.g., [HHD490/DevLog_AI] suggests working on the DevLog AI project)
+- Commit message patterns (feat:, fix:, refactor:, etc.)
+- Any technical keywords
+
+In your summary, clearly indicate which parts are interpreted from GitHub commits vs. manual logs.
+` : ''}
 
 Output a structured summary in JSON format:
 {
-  "content": "A paragraph summary of the day.",
+  "content": "A paragraph summary of the day. ${githubLogs.length > 0 ? "Include a section starting with '📎 From GitHub:' to summarize work interpreted from commits." : ''}",
   "keyAchievements": ["achievement 1", "achievement 2"],
   "techStackUsed": ["tech1", "tech2"]
 }`;
