@@ -10,6 +10,7 @@ interface CalendarHeatmapProps {
 export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({ logs }) => {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
 
   // 1. 获取可用年份
   const availableYears = useMemo(() => {
@@ -163,31 +164,55 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({ logs }) => {
             </div>
 
             {/* Grid */}
-            <div className="flex gap-1">
+            <div className="flex gap-1 relative">
               {heatmapData.map((week, weekIdx) => (
                 <div key={weekIdx} className="flex flex-col gap-1">
-                  {week.map((day, dayIdx) => (
-                    <div
-                      key={dayIdx}
-                      title={day.count >= 0 ? `${day.date.toLocaleDateString()}: ${day.count} entries` : ''}
-                      // 确保 w-3 (12px)
-                      className={`w-3 h-3 rounded-[2px] transition-colors ${getColorClass(day.count)} ${day.count >= 0 ? 'hover:ring-2 hover:ring-indigo-300 cursor-help' : ''}`}
-                    />
-                  ))}
+                  {week.map((day, dayIdx) => {
+                    const dateStr = day.count >= 0
+                      ? `${String(day.date.getMonth() + 1).padStart(2, '0')}-${String(day.date.getDate()).padStart(2, '0')}`
+                      : '';
+                    const tooltipText = day.count >= 0
+                      ? `${dateStr}: ${day.count} 条记录`
+                      : '';
+                    return (
+                      <div
+                        key={dayIdx}
+                        onMouseEnter={(e) => {
+                          if (day.count >= 0) {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setTooltip({ text: tooltipText, x: rect.left + rect.width / 2, y: rect.top - 8 });
+                          }
+                        }}
+                        onMouseLeave={() => setTooltip(null)}
+                        className={`w-3 h-3 rounded-[2px] transition-colors ${getColorClass(day.count)} ${day.count >= 0 ? 'hover:ring-2 hover:ring-indigo-300' : ''}`}
+                      />
+                    );
+                  })}
                 </div>
               ))}
+
+              {/* Custom Tooltip */}
+              {tooltip && (
+                <div
+                  className="fixed z-50 px-2 py-1 text-xs font-medium text-white bg-slate-800 rounded shadow-lg pointer-events-none whitespace-nowrap transform -translate-x-1/2 -translate-y-full"
+                  style={{ left: tooltip.x, top: tooltip.y }}
+                >
+                  {tooltip.text}
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-800" />
+                </div>
+              )}
             </div>
           </div>
+        </div>
 
-          {/* Legend */}
-          <div className="mt-4 flex items-center justify-end gap-2 text-[10px] text-slate-400">
-            <span>Less</span>
-            <div className="w-2.5 h-2.5 rounded-[1px] bg-slate-100" />
-            <div className="w-2.5 h-2.5 rounded-[1px] bg-indigo-200" />
-            <div className="w-2.5 h-2.5 rounded-[1px] bg-indigo-400" />
-            <div className="w-2.5 h-2.5 rounded-[1px] bg-indigo-600" />
-            <span>More</span>
-          </div>
+        {/* Legend */}
+        <div className="mt-4 flex items-center justify-end gap-2 text-[10px] text-slate-400">
+          <span>Less</span>
+          <div className="w-2.5 h-2.5 rounded-[1px] bg-slate-100" />
+          <div className="w-2.5 h-2.5 rounded-[1px] bg-indigo-200" />
+          <div className="w-2.5 h-2.5 rounded-[1px] bg-indigo-400" />
+          <div className="w-2.5 h-2.5 rounded-[1px] bg-indigo-600" />
+          <span>More</span>
         </div>
       </div>
     </div>
