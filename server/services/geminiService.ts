@@ -271,18 +271,43 @@ Respond in JSON format:
   "content": "markdown string"
 }`;
 
+        console.log('[AI] Generating blog for', periodName, 'with', logs.length, 'logs');
+
         try {
             const responseText = await provider.generateContent(prompt);
-            const json = parseJsonResponse(responseText);
-            return {
-                title: json.title || `Dev Log: ${periodName}`,
-                content: json.content || 'Could not generate blog content.'
-            };
-        } catch (e) {
-            console.error('[AI] Blog generation failed:', e);
+            console.log('[AI] Blog response length:', responseText.length);
+
+            // Try to parse JSON response
+            try {
+                const json = parseJsonResponse(responseText);
+                if (json.title && json.content) {
+                    return {
+                        title: json.title,
+                        content: json.content
+                    };
+                }
+            } catch (parseError) {
+                console.log('[AI] JSON parse failed, trying alternative parsing');
+            }
+
+            // Fallback: if response doesn't parse as JSON, treat the whole response as content
+            // and generate a title from the period name
+            if (responseText && responseText.length > 100) {
+                return {
+                    title: `Dev Log: ${periodName}`,
+                    content: responseText
+                };
+            }
+
             return {
                 title: `Dev Log: ${periodName}`,
                 content: 'Could not generate blog content.'
+            };
+        } catch (e: any) {
+            console.error('[AI] Blog generation failed:', e.message || e);
+            return {
+                title: `Dev Log: ${periodName}`,
+                content: `Failed to generate blog: ${e.message || 'Unknown error'}`
             };
         }
     },
