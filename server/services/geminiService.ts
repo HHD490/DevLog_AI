@@ -157,7 +157,7 @@ Output a structured summary in JSON format:
     },
 
     /**
-     * "Ask The Brain" - RAG implementation.
+     * "Ask The Brain" - RAG implementation (single query).
      */
     askBrain: async (query: string, allLogs: { timestamp: number, content: string, tags: Tag[] }[]): Promise<string> => {
         const provider = getAIProvider();
@@ -181,6 +181,67 @@ If not found in context, say so, but offer general advice based on your knowledg
         } catch (e) {
             console.error('[AI] Ask Brain failed:', e);
             return "Failed to generate an answer. Please try again.";
+        }
+    },
+
+    /**
+     * "Ask The Brain" with conversation context - supports multi-turn dialogue.
+     * Uses the last 5 rounds (10 messages) for context plus work logs for RAG.
+     */
+    askBrainWithContext: async (
+        messages: { role: 'user' | 'assistant', content: string }[],
+        allLogs: { timestamp: number, content: string, tags: Tag[] }[]
+    ): Promise<string> => {
+        const provider = getAIProvider();
+
+        // Build work history context for RAG
+        const logsContext = allLogs.slice(0, 50).map(l =>
+            `[${new Date(l.timestamp).toLocaleDateString()}] ${l.content}`
+        ).join('\n');
+
+        // Build conversation history
+        const conversationHistory = messages.map(m =>
+            `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`
+        ).join('\n\n');
+
+        const prompt = `You are a helpful AI assistant that knows my work history. Answer based on my work logs when relevant, and provide helpful responses in a conversational manner.
+
+=== MY WORK HISTORY ===
+${logsContext}
+
+=== CONVERSATION HISTORY ===
+${conversationHistory}
+
+Continue the conversation naturally. If the user asks about my past work, refer to the work history above. Format your response with Markdown when appropriate (code blocks, lists, etc.).`;
+
+        try {
+            const response = await provider.generateContent(prompt);
+            return response || "I couldn't generate an answer.";
+        } catch (e: any) {
+            console.error('[AI] Ask Brain with context failed:', e);
+            return `Sorry, I encountered an error: ${e.message || 'Unknown error'}. Please try again.`;
+        }
+    },
+
+    /**
+     * Generate a short title for a conversation based on the first message.
+     */
+    generateConversationTitle: async (firstMessage: string): Promise<string> => {
+        const provider = getAIProvider();
+
+        const prompt = `Generate a very short title (max 5 words) for a conversation that starts with this message:
+"${firstMessage}"
+
+Respond with ONLY the title, no quotes, no explanation.`;
+
+        try {
+            const response = await provider.generateContent(prompt);
+            // Clean up the response
+            const title = response.trim().replace(/^["']|["']$/g, '').substring(0, 50);
+            return title || 'New Chat';
+        } catch (e) {
+            console.error('[AI] Generate title failed:', e);
+            return 'New Chat';
         }
     },
 

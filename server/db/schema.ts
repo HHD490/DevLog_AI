@@ -65,6 +65,24 @@ export const appState = sqliteTable('app_state', {
     updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
+// Conversations table for Ask Brain chat history
+export const conversations = sqliteTable('conversations', {
+    id: text('id').primaryKey(),
+    title: text('title').notNull().default('New Chat'),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+    isArchived: integer('is_archived', { mode: 'boolean' }).default(false),
+});
+
+// Conversation messages table
+export const conversationMessages = sqliteTable('conversation_messages', {
+    id: text('id').primaryKey(),
+    conversationId: text('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(), // 'user' | 'assistant'
+    content: text('content').notNull(),
+    timestamp: integer('timestamp', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
 // Type exports for use in the application
 export type Log = typeof logs.$inferSelect;
 export type NewLog = typeof logs.$inferInsert;
@@ -74,3 +92,7 @@ export type Skill = typeof skillTree.$inferSelect;
 export type NewSkill = typeof skillTree.$inferInsert;
 export type BlogPost = typeof blogPosts.$inferSelect;
 export type NewBlogPost = typeof blogPosts.$inferInsert;
+export type Conversation = typeof conversations.$inferSelect;
+export type NewConversation = typeof conversations.$inferInsert;
+export type ConversationMessage = typeof conversationMessages.$inferSelect;
+export type NewConversationMessage = typeof conversationMessages.$inferInsert;

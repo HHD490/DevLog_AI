@@ -13,6 +13,7 @@ import blogsRoutes from './routes/blogs';
 import brainRoutes from './routes/brain';
 import processingRoutes from './routes/processing';
 import githubRoutes from './routes/github';
+import conversationsRoutes from './routes/conversations';
 
 // Import scheduler
 import { initScheduler } from './services/schedulerService';
@@ -45,6 +46,7 @@ app.use('/api/blogs', blogsRoutes);
 app.use('/api/brain', brainRoutes);
 app.use('/api/processing', processingRoutes);
 app.use('/api/github', githubRoutes);
+app.use('/api/conversations', conversationsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -123,9 +125,27 @@ async function initDatabase() {
         updated_at INTEGER DEFAULT (unixepoch())
       );
       
+      CREATE TABLE IF NOT EXISTS conversations (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL DEFAULT 'New Chat',
+        created_at INTEGER DEFAULT (unixepoch()),
+        updated_at INTEGER DEFAULT (unixepoch()),
+        is_archived INTEGER DEFAULT 0
+      );
+      
+      CREATE TABLE IF NOT EXISTS conversation_messages (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        timestamp INTEGER DEFAULT (unixepoch()),
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+      );
+      
       CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
       CREATE INDEX IF NOT EXISTS idx_logs_needs_processing ON logs(needs_ai_processing);
       CREATE INDEX IF NOT EXISTS idx_logs_skill_tree ON logs(processed_for_skill_tree);
+      CREATE INDEX IF NOT EXISTS idx_conv_messages_conv_id ON conversation_messages(conversation_id);
     `);
 
     console.log('[DB] Database initialized successfully');
