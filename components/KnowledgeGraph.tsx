@@ -299,13 +299,35 @@ export const KnowledgeGraph: React.FC = () => {
         ctx.translate(offset.x, offset.y);
         ctx.scale(zoom, zoom);
 
+        // Find connected nodes when hovering
+        const connectedNodeIds = new Set<string>();
+        if (hoveredNode) {
+            connectedNodeIds.add(hoveredNode.id);
+            filteredEdges.forEach(edge => {
+                if (edge.source === hoveredNode.id) connectedNodeIds.add(edge.target);
+                if (edge.target === hoveredNode.id) connectedNodeIds.add(edge.source);
+            });
+        }
+        const isHighlightMode = hoveredNode !== null;
+
         // Draw edges (use filtered edges)
         filteredEdges.slice(0, 100).forEach(edge => {
             const s = posMap.get(edge.source) as NodePosition | undefined;
             const t = posMap.get(edge.target) as NodePosition | undefined;
             if (!s || !t) return;
-            ctx.strokeStyle = `rgba(99, 102, 241, ${0.1 + edge.weight * 0.5})`;
-            ctx.lineWidth = 0.5 + edge.weight * 1.5;
+
+            // Check if this edge connects to hovered node
+            const isConnected = isHighlightMode &&
+                (edge.source === hoveredNode!.id || edge.target === hoveredNode!.id);
+
+            // Enhanced color contrast: weight ranges from ~0.3 to 1.0, map to 0.1-0.9 alpha
+            const baseAlpha = 0.05 + edge.weight * 0.85;
+            const alpha = isHighlightMode ? (isConnected ? Math.min(1, baseAlpha + 0.3) : 0.08) : baseAlpha;
+
+            ctx.strokeStyle = isConnected
+                ? `rgba(79, 70, 229, ${alpha})` // Indigo for connected edges
+                : `rgba(99, 102, 241, ${alpha})`;
+            ctx.lineWidth = isConnected ? 2 + edge.weight * 2 : 0.5 + edge.weight * 1.5;
             ctx.beginPath();
             ctx.moveTo(s.x, s.y);
             ctx.lineTo(t.x, t.y);
@@ -318,9 +340,19 @@ export const KnowledgeGraph: React.FC = () => {
             if (!pos) return;
             const isHovered = hoveredNode?.id === node.id;
             const isSelected = selectedNode?.id === node.id;
+            const isConnected = connectedNodeIds.has(node.id);
             const tag = node.tags[0];
-            const color = tag ? (CATEGORY_COLORS[tag.category] || CATEGORY_COLORS.default) : CATEGORY_COLORS.default;
-            const r = isHovered || isSelected ? 12 : 8;
+            let color = tag ? (CATEGORY_COLORS[tag.category] || CATEGORY_COLORS.default) : CATEGORY_COLORS.default;
+
+            // Dim non-connected nodes in highlight mode
+            if (isHighlightMode && !isConnected) {
+                // Parse the color and reduce opacity
+                ctx.globalAlpha = 0.2;
+            } else {
+                ctx.globalAlpha = 1;
+            }
+
+            const r = isHovered || isSelected ? 12 : (isConnected && isHighlightMode ? 10 : 8);
 
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
@@ -335,11 +367,17 @@ export const KnowledgeGraph: React.FC = () => {
                 ctx.strokeStyle = '#4f46e5';
                 ctx.lineWidth = 2;
                 ctx.stroke();
+            } else if (isConnected && isHighlightMode) {
+                ctx.strokeStyle = '#4f46e5';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
             }
+
+            ctx.globalAlpha = 1;
         });
 
         ctx.restore();
-    }, [graphData, nodePositions, zoom, offset, hoveredNode, selectedNode, canvasSize]);
+    }, [graphData, nodePositions, zoom, offset, hoveredNode, selectedNode, canvasSize, filteredEdges]);
 
     // Canvas resize
     useEffect(() => {
