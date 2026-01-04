@@ -106,13 +106,13 @@ cd embedding-service
 uv run python main.py
 ```
 
-应用将在 http://localhost:5173 运行。
+应用将在 http://localhost:3000 运行。
 
 ### 端口说明
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| 前端 | 5173 | Vite 开发服务器 |
+| 前端 | 3000 | Vite 开发服务器 |
 | 后端 | 3001 | Express API 服务器 |
 | Embedding | 5001 | Python FastAPI 服务 |
 

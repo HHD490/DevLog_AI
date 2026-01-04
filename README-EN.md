@@ -104,13 +104,13 @@ cd embedding-service
 uv run python main.py
 ```
 
-The app will be running at http://localhost:5173.
+The app will be running at http://localhost:3000.
 
 ### Port Mapping
 
 | Service | Port | Description |
 |------|------|------|
-| Frontend | 5173 | Vite development server |
+| Frontend | 3000 | Vite development server |
 | Backend | 3001 | Express API server |
 | Embedding | 5001 | Python FastAPI service |
 

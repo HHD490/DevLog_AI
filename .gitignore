@@ -52,3 +52,6 @@ embedding-service/uv.lock
 
 # OS
 Thumbs.db
+
+# Internal documentation
+/doc
