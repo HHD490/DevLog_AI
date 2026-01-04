@@ -28,51 +28,29 @@ router.get('/health', async (req, res) => {
 
 /**
  * GET /api/graph/data
- * Get graph nodes and edges for visualization
+ * Get graph nodes and embeddings for visualization
+ * Similarity computation is done on frontend
  * Query params:
  *   - limit: max nodes (default 10000)
- *   - minSimilarity: threshold for edges (default 0)
  */
 router.get('/data', async (req, res) => {
     try {
         const limit = parseInt(req.query.limit as string) || 10000;
-        const minSimilarity = parseFloat(req.query.minSimilarity as string) || 0;
 
         // Get nodes and embeddings
         const { nodes, embeddings } = await getGraphData(limit);
 
         if (nodes.length === 0) {
-            return res.json({ nodes: [], edges: [] });
+            return res.json({ nodes: [], embeddings: [] });
         }
 
-        // Compute similarity matrix
-        const embeddingVectors = embeddings.map(e => e.embedding);
-        const matrix = await computeSimilarityMatrix(embeddingVectors);
+        // Return nodes with their embeddings for frontend similarity computation
+        const nodeEmbeddings = nodes.map((node, i) => ({
+            id: node.id,
+            embedding: embeddings[i]?.embedding || null
+        }));
 
-        if (!matrix) {
-            // If similarity computation fails, return nodes only
-            return res.json({ nodes, edges: [] });
-        }
-
-        // Build edges from similarity matrix
-        const edges: { source: string; target: string; weight: number }[] = [];
-        for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-                const similarity = matrix[i][j];
-                if (similarity >= minSimilarity) {
-                    edges.push({
-                        source: nodes[i].id,
-                        target: nodes[j].id,
-                        weight: similarity
-                    });
-                }
-            }
-        }
-
-        // Sort edges by weight descending
-        edges.sort((a, b) => b.weight - a.weight);
-
-        res.json({ nodes, edges });
+        res.json({ nodes, embeddings: nodeEmbeddings });
     } catch (error) {
         console.error('[Graph] Data fetch error:', error);
         res.status(500).json({ error: 'Failed to get graph data' });

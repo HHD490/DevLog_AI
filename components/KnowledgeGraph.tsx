@@ -16,6 +16,16 @@ interface GraphEdge {
     weight: number;
 }
 
+interface NodeEmbedding {
+    id: string;
+    embedding: number[] | null;
+}
+
+interface GraphApiResponse {
+    nodes: GraphNode[];
+    embeddings: NodeEmbedding[];
+}
+
 interface GraphData {
     nodes: GraphNode[];
     edges: GraphEdge[];
@@ -27,6 +37,46 @@ interface NodePosition {
     y: number;
     vx: number;
     vy: number;
+}
+
+// Cosine similarity computed in frontend (no Python service needed)
+function cosineSimilarity(vec1: number[], vec2: number[]): number {
+    if (!vec1 || !vec2 || vec1.length !== vec2.length) return 0;
+    let dot = 0, norm1 = 0, norm2 = 0;
+    for (let i = 0; i < vec1.length; i++) {
+        dot += vec1[i] * vec2[i];
+        norm1 += vec1[i] * vec1[i];
+        norm2 += vec2[i] * vec2[i];
+    }
+    if (norm1 === 0 || norm2 === 0) return 0;
+    return dot / (Math.sqrt(norm1) * Math.sqrt(norm2));
+}
+
+// Compute edges from embeddings
+function computeEdgesFromEmbeddings(embeddings: NodeEmbedding[]): GraphEdge[] {
+    const edges: GraphEdge[] = [];
+    const validEmbeddings = embeddings.filter(e => e.embedding !== null);
+
+    for (let i = 0; i < validEmbeddings.length; i++) {
+        for (let j = i + 1; j < validEmbeddings.length; j++) {
+            const similarity = cosineSimilarity(
+                validEmbeddings[i].embedding!,
+                validEmbeddings[j].embedding!
+            );
+            // Only keep non-trivial similarities
+            if (similarity > 0.01) {
+                edges.push({
+                    source: validEmbeddings[i].id,
+                    target: validEmbeddings[j].id,
+                    weight: similarity
+                });
+            }
+        }
+    }
+
+    // Sort by weight descending
+    edges.sort((a, b) => b.weight - a.weight);
+    return edges;
 }
 
 // Color palette for different tag categories
@@ -78,29 +128,32 @@ export const KnowledgeGraph: React.FC = () => {
         }
     }, []);
 
-    // Fetch graph data - always fetch all edges, filter locally
+    // Fetch graph data - now computes edges on frontend from embeddings
     const fetchGraphData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch('/api/graph/data?minSimilarity=0');
+            const res = await fetch('/api/graph/data');
             if (!res.ok) throw new Error('Failed to fetch graph data');
-            const data = await res.json();
-            setGraphData(data);
+            const apiData: GraphApiResponse = await res.json();
+
+            // Compute edges from embeddings on frontend
+            const edges = computeEdgesFromEmbeddings(apiData.embeddings);
+            setGraphData({ nodes: apiData.nodes, edges });
 
             // Get current canvas size from container
             const containerWidth = containerRef.current?.clientWidth || 800;
             const containerHeight = containerRef.current?.clientHeight || 600;
 
             // Initialize node positions centered in canvas
-            if (data.nodes.length > 0) {
+            if (apiData.nodes.length > 0) {
                 const centerX = containerWidth / 2;
                 const centerY = containerHeight / 2;
                 const radius = Math.min(containerWidth, containerHeight) * 0.35;
 
-                const positions = data.nodes.map((node: GraphNode, i: number) => {
+                const positions = apiData.nodes.map((node: GraphNode, i: number) => {
                     // Arrange in a circle initially
-                    const angle = (2 * Math.PI * i) / data.nodes.length;
+                    const angle = (2 * Math.PI * i) / apiData.nodes.length;
                     return {
                         id: node.id,
                         x: centerX + Math.cos(angle) * radius * (0.5 + Math.random() * 0.5),
@@ -120,7 +173,7 @@ export const KnowledgeGraph: React.FC = () => {
         }
     }, []);
 
-    // Filter edges based on threshold (computed, not refetched)
+    // Filter edges based on threshold (computed locally)
     const filteredEdges = graphData?.edges.filter(e => e.weight >= similarityThreshold) || [];
 
     // Trigger processing
