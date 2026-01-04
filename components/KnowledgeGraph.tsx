@@ -341,7 +341,7 @@ export const KnowledgeGraph: React.FC = () => {
 
         if (!graphData) return;
         const { x, y } = getMousePos(e);
-        const posMap = new Map(nodePositions.map(p => [p.id, p]));
+        const posMap = new Map<string, NodePosition>(nodePositions.map(p => [p.id, p]));
 
         let found: GraphNode | null = null;
         for (const node of graphData.nodes) {

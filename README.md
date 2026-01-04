@@ -1,4 +1,6 @@
 # DevLog AI
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://github.com/HHD490/DevLog_AI/blob/main/LICENSE)
+[![README-en](https://img.shields.io/badge/README-en-brightgreen)](https://github.com/HHD490/DevLog_AI/blob/main/README-EN.md)
 
 一个智能开发日志管理应用，帮助开发者记录、追踪和回顾编程学习与开发历程。
 
@@ -142,6 +144,3 @@ npm run typecheck
 npm run build
 ```
 
-## 📄 License
-
-MIT
