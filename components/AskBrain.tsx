@@ -3,6 +3,7 @@ import {
   Send, User, Bot, Loader, Plus, Archive, Trash2,
   MessageSquare, Clock, ChevronLeft, MoreVertical, FolderArchive
 } from 'lucide-react';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface Conversation {
   id: string;
@@ -105,26 +106,6 @@ const groupConversationsByDate = (conversations: Conversation[]) => {
   });
 
   return groups.filter(g => g.items.length > 0);
-};
-
-// Simple Markdown renderer for code blocks
-const renderMessage = (content: string) => {
-  const parts = content.split(/(```[\s\S]*?```)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('```')) {
-      const lines = part.slice(3, -3).split('\n');
-      const lang = lines[0] || '';
-      const code = lines.slice(1).join('\n');
-      return (
-        <pre key={i} className="bg-slate-800 text-slate-100 rounded-lg p-3 my-2 overflow-x-auto text-xs">
-          <code>{code || lines.join('\n')}</code>
-        </pre>
-      );
-    }
-    return part.split('\n').map((line, j) => (
-      <p key={`${i}-${j}`} className={j > 0 ? 'mt-2' : ''}>{line}</p>
-    ));
-  });
 };
 
 export const AskBrain: React.FC<AskBrainProps> = () => {
@@ -418,10 +399,10 @@ export const AskBrain: React.FC<AskBrainProps> = () => {
                     {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                   </div>
                   <div className={`max-w-[75%] rounded-2xl p-4 text-sm leading-relaxed ${msg.role === 'user'
-                      ? 'bg-indigo-600 text-white rounded-tr-none'
-                      : 'bg-slate-100 text-slate-800 rounded-tl-none'
+                    ? 'bg-indigo-600 text-white rounded-tr-none'
+                    : 'bg-slate-100 text-slate-800 rounded-tl-none'
                     }`}>
-                    {msg.role === 'assistant' ? renderMessage(msg.content) : msg.content}
+                    {msg.role === 'assistant' ? <MarkdownRenderer content={msg.content} /> : msg.content}
                   </div>
                 </div>
               ))}

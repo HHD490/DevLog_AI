@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LogEntry, BlogPost } from '../types';
 import { apiService } from '../services/apiService';
 import { FileText, Loader2, CalendarRange, Download, Calendar, ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface BlogGeneratorProps {
   logs: LogEntry[];
@@ -47,44 +48,6 @@ const getDateRange = (period: PeriodType): { start: Date; end: Date; name: strin
 
 const formatDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const formatDisplayDate = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
-
-// Helper to render inline markdown (bold, italic, code)
-const renderInlineMarkdown = (text: string): React.ReactNode[] => {
-  const result: React.ReactNode[] = [];
-  let remaining = text;
-  let key = 0;
-
-  while (remaining.length > 0) {
-    // Match patterns: **bold**, *italic*, `code`
-    const match = remaining.match(/(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`)/);
-
-    if (!match || match.index === undefined) {
-      result.push(<span key={key++}>{remaining}</span>);
-      break;
-    }
-
-    // Add text before match
-    if (match.index > 0) {
-      result.push(<span key={key++}>{remaining.slice(0, match.index)}</span>);
-    }
-
-    const fullMatch = match[0];
-    if (fullMatch.startsWith('**')) {
-      // Bold
-      result.push(<strong key={key++} className="font-semibold text-slate-800">{match[2]}</strong>);
-    } else if (fullMatch.startsWith('`')) {
-      // Inline code
-      result.push(<code key={key++} className="px-1.5 py-0.5 bg-slate-100 text-pink-600 rounded text-sm font-mono">{match[4]}</code>);
-    } else if (fullMatch.startsWith('*')) {
-      // Italic
-      result.push(<em key={key++} className="italic">{match[3]}</em>);
-    }
-
-    remaining = remaining.slice(match.index + fullMatch.length);
-  }
-
-  return result;
-};
 
 // Simple Calendar Component
 const SimpleDatePicker: React.FC<{
@@ -407,82 +370,7 @@ export const BlogGenerator: React.FC<BlogGeneratorProps> = ({ logs }) => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              {(() => {
-                // Extract content from various formats
-                let content = previewBlog.content;
-
-                // Step 1: Strip ```json wrapper if present
-                if (content.trim().startsWith('```')) {
-                  // Remove opening ```json or ``` and closing ```
-                  content = content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
-                }
-
-                // Step 2: Parse JSON if it looks like JSON
-                if (content.trim().startsWith('{')) {
-                  try {
-                    const parsed = JSON.parse(content);
-                    content = parsed.content || content;
-                  } catch (e) {
-                    // Not valid JSON, use as-is
-                  }
-                }
-
-                // Step 3: Unescape literal \n to actual newlines
-                content = content.replace(/\\n/g, '\n');
-
-                // Pre-process to handle code blocks properly
-                const lines = content.split('\n');
-                const elements: React.ReactNode[] = [];
-                let i = 0;
-
-                while (i < lines.length) {
-                  const line = lines[i];
-
-                  // Handle code blocks
-                  if (line.startsWith('```')) {
-                    const codeLines: string[] = [];
-                    i++; // Skip opening ```
-                    while (i < lines.length && !lines[i].startsWith('```')) {
-                      codeLines.push(lines[i]);
-                      i++;
-                    }
-                    i++; // Skip closing ```
-                    elements.push(
-                      <pre key={`code-${i}`} className="bg-slate-800 text-slate-100 rounded-lg p-4 my-3 overflow-x-auto text-sm font-mono">
-                        <code>{codeLines.join('\n')}</code>
-                      </pre>
-                    );
-                    continue;
-                  }
-
-                  // Headings
-                  if (line.startsWith('# ')) {
-                    elements.push(<h1 key={i} className="text-2xl font-bold text-slate-800 mb-4 mt-6">{renderInlineMarkdown(line.slice(2))}</h1>);
-                  } else if (line.startsWith('## ')) {
-                    elements.push(<h2 key={i} className="text-xl font-bold text-slate-800 mt-6 mb-3">{renderInlineMarkdown(line.slice(3))}</h2>);
-                  } else if (line.startsWith('### ')) {
-                    elements.push(<h3 key={i} className="text-lg font-semibold text-slate-700 mt-4 mb-2">{renderInlineMarkdown(line.slice(4))}</h3>);
-                    // Lists
-                  } else if (line.startsWith('- ')) {
-                    elements.push(<li key={i} className="ml-4 mb-1 text-slate-600">• {renderInlineMarkdown(line.slice(2))}</li>);
-                  } else if (line.match(/^\d+\. /)) {
-                    elements.push(<li key={i} className="ml-4 mb-1 text-slate-600">{renderInlineMarkdown(line)}</li>);
-                    // Horizontal rule
-                  } else if (line.trim() === '---') {
-                    elements.push(<hr key={i} className="my-6 border-slate-200" />);
-                    // Empty lines
-                  } else if (line.trim() === '') {
-                    elements.push(<div key={i} className="h-2" />);
-                    // Regular paragraphs with inline formatting
-                  } else {
-                    elements.push(<p key={i} className="mb-2 text-slate-600 leading-relaxed">{renderInlineMarkdown(line)}</p>);
-                  }
-
-                  i++;
-                }
-
-                return elements;
-              })()}
+              <MarkdownRenderer content={previewBlog.content} />
             </div>
             <div className="p-4 border-t border-slate-200 flex justify-end gap-2">
               <button
