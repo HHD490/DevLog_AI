@@ -12,9 +12,10 @@
 
 ### 🧠 AI 智能功能
 - **Ask Brain**: 基于所有日志的智能问答，支持多轮对话
-- **每日回顾**: AI 自动生成每日开发总结
+- **每日回顾**: AI 自动生成每日开发总结（每天晚上23:45，可手动生成）
 - **博客生成**: 根据日志自动生成技术博客文章
-- **多 AI 提供商**: 支持 Google Gemini、OpenAI、Anthropic
+- **技能树**: AI 自动识别技术标签（语言、框架、工具等）并生成技能树
+- **多 AI 提供商**: 支持 Google Gemini、DeepSeek（后续拓展其他提供商）
 
 ### 🔗 知识图谱
 - **语义关联**: 使用 BGE-M3 模型计算日志间的语义相似度
@@ -22,7 +23,7 @@
 - **相似度过滤**: 可调节阈值筛选关联强度
 
 ### 🔄 GitHub 集成
-- **自动同步**: 获取 GitHub commit 信息
+- **自动同步**: 获取 GitHub commit 信息（每天晚上23:43，可手动拉取）
 - **活动整合**: 将代码提交与开发日志关联
 
 ## 🛠️ 技术栈
@@ -39,7 +40,7 @@
 - node-cron (定时任务)
 
 **AI/ML**
-- Google Gemini / OpenAI / Anthropic API
+- Google Gemini / DeepSeek
 - Python FastAPI (Embedding 服务)
 - BGE-M3 (语义嵌入模型)
 
@@ -54,8 +55,8 @@
 ### 1. 安装 Node.js 依赖
 
 ```bash
-git clone https://github.com/yourusername/devlog-ai.git
-cd devlog-ai
+git clone https://github.com/HHD490/DevLog_AI.git
+cd DevLog_AI
 npm install
 ```
 
@@ -66,13 +67,10 @@ npm install
 ```env
 # AI Provider (选择一个)
 GEMINI_API_KEY=your_gemini_api_key
-
-# 可选: 其他 AI 提供商
+DEEPSEEK_API_KEY=your_deepseek_api_key
+# 可选: 其他 AI 提供商（暂时还没添加）
 # OPENAI_API_KEY=your_openai_api_key
 # ANTHROPIC_API_KEY=your_anthropic_api_key
-
-# 可选: GitHub 集成
-# GITHUB_TOKEN=your_github_token
 ```
 
 ### 3. 初始化数据库

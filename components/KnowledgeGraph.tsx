@@ -78,12 +78,12 @@ export const KnowledgeGraph: React.FC = () => {
         }
     }, []);
 
-    // Fetch graph data
+    // Fetch graph data - always fetch all edges, filter locally
     const fetchGraphData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`/api/graph/data?minSimilarity=${similarityThreshold}`);
+            const res = await fetch('/api/graph/data?minSimilarity=0');
             if (!res.ok) throw new Error('Failed to fetch graph data');
             const data = await res.json();
             setGraphData(data);
@@ -118,7 +118,10 @@ export const KnowledgeGraph: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [similarityThreshold]);
+    }, []);
+
+    // Filter edges based on threshold (computed, not refetched)
+    const filteredEdges = graphData?.edges.filter(e => e.weight >= similarityThreshold) || [];
 
     // Trigger processing
     const triggerProcessing = async () => {
@@ -143,7 +146,7 @@ export const KnowledgeGraph: React.FC = () => {
         const MAX_ITERATIONS = 200;
         const centerX = canvasSize.width / 2;
         const centerY = canvasSize.height / 2;
-        const topEdges = graphData.edges.slice(0, 100);
+        const topEdges = filteredEdges.slice(0, 100);
 
         const simulate = () => {
             iterationRef.current++;
@@ -243,8 +246,8 @@ export const KnowledgeGraph: React.FC = () => {
         ctx.translate(offset.x, offset.y);
         ctx.scale(zoom, zoom);
 
-        // Draw edges
-        graphData.edges.slice(0, 100).forEach(edge => {
+        // Draw edges (use filtered edges)
+        filteredEdges.slice(0, 100).forEach(edge => {
             const s = posMap.get(edge.source) as NodePosition | undefined;
             const t = posMap.get(edge.target) as NodePosition | undefined;
             if (!s || !t) return;
@@ -421,10 +424,11 @@ export const KnowledgeGraph: React.FC = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    // Refetch when threshold changes
+    // Restart simulation when threshold changes (edges filter locally)
     useEffect(() => {
-        if (graphData) {
-            fetchGraphData();
+        if (graphData && nodePositions.length > 0) {
+            iterationRef.current = 0;
+            setIsSimulating(true);
         }
     }, [similarityThreshold]);
 
@@ -455,7 +459,7 @@ export const KnowledgeGraph: React.FC = () => {
                     <span style={{ fontSize: 18, fontWeight: 700, color: '#1e293b' }}>Knowledge Graph</span>
                     {graphData && (
                         <span style={{ fontSize: 14, color: '#64748b' }}>
-                            {graphData.nodes.length} nodes, {graphData.edges.length} edges
+                            {graphData.nodes.length} nodes, {filteredEdges.length} edges
                         </span>
                     )}
                 </div>
@@ -483,13 +487,13 @@ export const KnowledgeGraph: React.FC = () => {
                         <input
                             type="range"
                             min="0"
-                            max="0.9"
-                            step="0.1"
+                            max="0.99"
+                            step="0.01"
                             value={similarityThreshold}
                             onChange={(e) => setSimilarityThreshold(parseFloat(e.target.value))}
-                            style={{ width: 80 }}
+                            style={{ width: 100 }}
                         />
-                        <span style={{ fontSize: 12, color: '#64748b', width: 40 }}>≥{similarityThreshold.toFixed(1)}</span>
+                        <span style={{ fontSize: 12, color: '#64748b', width: 45 }}>≥{similarityThreshold.toFixed(2)}</span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
