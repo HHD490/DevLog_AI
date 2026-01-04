@@ -62,7 +62,7 @@ npm install
 ```
 
 ### 2. Configure Environment Variables
-Create a .env.local file:
+Create a .env.local file(Simply rename `.env.example` to `.env.local`):
 
 ```env
 # AI Provider (Choose one)

@@ -64,7 +64,7 @@ npm install
 
 ### 2. 配置环境变量
 
-创建 `.env.local` 文件：
+创建 `.env.local` 文件（将 `.env.example` 重命名为 `.env.local`即可）：
 
 ```env
 # AI Provider (选择一个)
