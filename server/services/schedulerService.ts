@@ -4,6 +4,7 @@ import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import { geminiService } from './geminiService';
 import { batchProcessPendingEntries } from './tagService';
 import { syncGitHubToLogs } from '../routes/github';
+import { processUnprocessedLogs, checkEmbeddingServiceHealth } from './embeddingService';
 
 /**
  * Initialize all scheduled tasks
@@ -30,6 +31,19 @@ export function initScheduler(): void {
         } catch (error) {
             console.error('[Scheduler] Batch processing error:', error);
         }
+
+        // Also process unprocessed embeddings
+        try {
+            const health = await checkEmbeddingServiceHealth();
+            if (health && health.status === 'ok') {
+                const processed = await processUnprocessedLogs();
+                if (processed > 0) {
+                    console.log(`[Scheduler] Embedding processed ${processed} logs`);
+                }
+            }
+        } catch (error) {
+            console.error('[Scheduler] Embedding processing error:', error);
+        }
     });
 
     // GitHub sync at 23:43 every day, before daily recap
@@ -53,6 +67,7 @@ export function initScheduler(): void {
     console.log('  - GitHub sync: 23:43 (Asia/Shanghai)');
     console.log('  - Daily recap: 23:45 (Asia/Shanghai)');
     console.log('  - Batch AI processing: every 10 minutes');
+    console.log('  - Embedding processing: every 10 minutes');
 }
 
 /**

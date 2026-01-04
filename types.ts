@@ -39,4 +39,4 @@ export interface BlogPost {
   createdAt: number;
 }
 
-export type ViewState = 'dashboard' | 'timeline' | 'brain' | 'blog' | 'skills' | 'settings';
+export type ViewState = 'dashboard' | 'timeline' | 'brain' | 'blog' | 'skills' | 'graph' | 'settings';

@@ -6,6 +6,7 @@ import { InputModal } from './components/InputModal';
 import { AskBrain } from './components/AskBrain';
 import { BlogGenerator } from './components/BlogGenerator';
 import { SkillTree } from './components/SkillTree';
+import { KnowledgeGraph } from './components/KnowledgeGraph';
 import { Settings } from './components/Settings';
 import { LogEntry, ViewState, DailySummary } from './types';
 import { apiService } from './services/apiService';
@@ -132,6 +133,8 @@ const App: React.FC = () => {
         return <BlogGenerator logs={logs} />;
       case 'skills':
         return <SkillTree />;
+      case 'graph':
+        return <KnowledgeGraph />;
       case 'settings':
         return <Settings onSyncGithub={handleSyncGithub} />;
       default:

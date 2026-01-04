@@ -83,6 +83,15 @@ export const conversationMessages = sqliteTable('conversation_messages', {
     timestamp: integer('timestamp', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
+// Log embeddings table for Knowledge Graph
+export const logEmbeddings = sqliteTable('log_embeddings', {
+    logId: text('log_id').primaryKey().references(() => logs.id, { onDelete: 'cascade' }),
+    embedding: text('embedding').notNull(), // JSON serialized float array
+    dimensions: integer('dimensions').notNull().default(1024), // BGE-M3 outputs 1024-dim vectors
+    chunks: integer('chunks').notNull().default(1), // Number of chunks used
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
 // Type exports for use in the application
 export type Log = typeof logs.$inferSelect;
 export type NewLog = typeof logs.$inferInsert;
@@ -96,3 +105,6 @@ export type Conversation = typeof conversations.$inferSelect;
 export type NewConversation = typeof conversations.$inferInsert;
 export type ConversationMessage = typeof conversationMessages.$inferSelect;
 export type NewConversationMessage = typeof conversationMessages.$inferInsert;
+export type LogEmbedding = typeof logEmbeddings.$inferSelect;
+export type NewLogEmbedding = typeof logEmbeddings.$inferInsert;
+

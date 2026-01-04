@@ -3,6 +3,7 @@ import { db, schema } from '../db';
 import { eq, desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { processEntryWithLocalFirst } from '../services/tagService';
+import { processLogEmbedding } from '../services/embeddingService';
 
 const router = Router();
 
@@ -55,6 +56,11 @@ router.post('/', async (req, res) => {
         };
 
         await db.insert(schema.logs).values(newLog);
+
+        // Trigger embedding computation asynchronously (don't wait)
+        processLogEmbedding(newLog.id, content).catch(err => {
+            console.error('[Logs] Background embedding failed:', err);
+        });
 
         // Return in frontend format
         res.status(201).json({

@@ -23,4 +23,32 @@ dist-ssr
 *.sln
 *.sw?
 
+# Data and database
 /data
+*.db
+*.sqlite
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.eggs/
+
+# Embedding service
+embedding-service/.venv/
+embedding-service/uv.lock
+
+# Cache
+.cache/
+*.cache
+
+# OS
+Thumbs.db

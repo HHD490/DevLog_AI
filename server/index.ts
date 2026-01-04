@@ -14,6 +14,7 @@ import brainRoutes from './routes/brain';
 import processingRoutes from './routes/processing';
 import githubRoutes from './routes/github';
 import conversationsRoutes from './routes/conversations';
+import graphRoutes from './routes/graph';
 
 // Import scheduler
 import { initScheduler } from './services/schedulerService';
@@ -47,6 +48,7 @@ app.use('/api/brain', brainRoutes);
 app.use('/api/processing', processingRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/conversations', conversationsRoutes);
+app.use('/api/graph', graphRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
