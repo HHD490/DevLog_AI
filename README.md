@@ -93,16 +93,16 @@ uv sync
 
 ### 5. 启动应用
 
-**启动主应用 (前端 + 后端):**
+**启动主应用 (前端 + Node.js 后端):**
 
 ```bash
 npm run dev
 ```
 
-**启动 Embedding 服务 (可选):**
+**启动 Python 后端服务 (AI + Embedding):**
 
 ```bash
-cd embedding-service
+cd backend
 uv run python main.py
 ```
 
@@ -113,21 +113,23 @@ uv run python main.py
 | 服务 | 端口 | 说明 |
 |------|------|------|
 | 前端 | 3000 | Vite 开发服务器 |
-| 后端 | 3001 | Express API 服务器 |
-| Embedding | 5001 | Python FastAPI 服务 |
+| Node.js 后端 | 3001 | Express API 服务器 |
+| Python 后端 | 5001 | FastAPI (AI + Embedding) |
 
 ## 📁 项目结构
 
 ```
 devlog-ai/
 ├── components/          # React 组件
-├── server/              # Node.js 后端
+├── server/              # Node.js 后端 (API 路由、数据库)
 │   ├── routes/          # API 路由
 │   ├── services/        # 业务逻辑
 │   └── db/              # 数据库配置
-├── embedding-service/   # Python Embedding 服务
-│   ├── main.py          # FastAPI 应用
-│   └── pyproject.toml   # Python 依赖
+├── backend/             # Python 后端 (AI + Agent)
+│   ├── main.py          # FastAPI 应用入口
+│   ├── llm/             # LLM 提供商抽象层
+│   ├── services/        # AI 服务 (标签、摘要、博客、Agent)
+│   └── routers/         # FastAPI 路由
 └── data/                # SQLite 数据库文件
 ```
 

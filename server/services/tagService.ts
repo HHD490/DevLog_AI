@@ -1,8 +1,15 @@
+/**
+ * Tag Service
+ * Handles tag extraction with local-first approach
+ * AI calls proxied to Python backend
+ */
+
 import { db, schema } from '../db';
 import { eq, and, sql } from 'drizzle-orm';
-import { geminiService } from './geminiService';
 import { matchLocalTags, generateLocalSummary, hasEnoughLocalTags } from '../utils/localTagRules';
 import { Tag } from './types';
+
+const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
 
 /**
  * Process a single entry with local-first approach.
@@ -52,18 +59,32 @@ export async function batchProcessPendingEntries(): Promise<{ processed: number 
     console.log(`[TagService] Processing ${pending.length} pending entries...`);
 
     try {
-        // Batch process with AI
-        const results = await geminiService.batchProcessEntries(
-            pending.map(p => ({ id: p.id, content: p.content }))
-        );
+        // Proxy to Python backend for batch processing
+        const response = await fetch(`${PYTHON_BACKEND_URL}/ai/tags/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                entries: pending.map(p => ({ id: p.id, content: p.content }))
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            console.error('[TagService] Python backend error:', error);
+            throw new Error('Batch processing failed');
+        }
+
+        const data = await response.json();
+        const results = data.results || {};
 
         // Update each entry
         for (const entry of pending) {
-            const result = results.get(entry.id);
+            const result = results[entry.id];
             if (result) {
                 // Merge local tags with AI tags (local tags as base, AI adds more)
                 const existingTags: Tag[] = JSON.parse(entry.tagsJson || '[]');
-                const mergedTags = mergeTags(existingTags, result.tags);
+                const aiTags = result.tags || [];
+                const mergedTags = mergeTags(existingTags, aiTags);
 
                 await db.update(schema.logs)
                     .set({

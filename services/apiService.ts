@@ -61,7 +61,7 @@ export const apiService = {
     // ==================== SKILL TREE ====================
 
     getSkillTree: async (): Promise<Skill[]> => {
-        const res = await fetch(`${API_BASE}/skills`);
+        const res = await fetch(`${API_BASE}/skillTree`);
         if (!res.ok) throw new Error('Failed to fetch skill tree');
         return res.json();
     },
@@ -73,7 +73,7 @@ export const apiService = {
         unprocessedLogs: number;
         unprocessedSummaries: number;
     }> => {
-        const res = await fetch(`${API_BASE}/skills/stats`);
+        const res = await fetch(`${API_BASE}/skillTree/stats`);
         if (!res.ok) throw new Error('Failed to fetch skill tree stats');
         return res.json();
     },
@@ -84,8 +84,8 @@ export const apiService = {
         newSkills: number;
         updatedSkills: number;
     }> => {
-        const res = await fetch(`${API_BASE}/skills/generate`, {
-            method: 'POST'
+        const res = await fetch(`${API_BASE}/skillTree/generate`, {
+            method: 'POST',
         });
         if (!res.ok) throw new Error('Failed to generate skill tree');
         return res.json();

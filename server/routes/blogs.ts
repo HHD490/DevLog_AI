@@ -1,10 +1,15 @@
+/**
+ * Blog Routes - Generates blog posts from logs
+ * AI calls proxied to Python backend
+ */
+
 import { Router } from 'express';
 import { db, schema } from '../db';
 import { desc } from 'drizzle-orm';
-import { geminiService } from '../services/geminiService';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
+const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
 
 // GET /api/blogs - Get all blog posts
 router.get('/', async (req, res) => {
@@ -53,11 +58,23 @@ router.post('/generate', async (req, res) => {
             return res.status(404).json({ error: 'No logs found in this date range' });
         }
 
-        // Generate blog
-        const result = await geminiService.generateBlog(
-            rangeLogs.map(l => ({ timestamp: l.timestamp, content: l.content })),
-            periodName || `${startDate} to ${endDate}`
-        );
+        // Proxy to Python backend for blog generation
+        const response = await fetch(`${PYTHON_BACKEND_URL}/ai/blog`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                logs: rangeLogs.map(l => ({ timestamp: l.timestamp, content: l.content })),
+                period_name: periodName || `${startDate} to ${endDate}`
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            console.error('[Blogs] Python backend error:', error);
+            return res.status(500).json({ error: 'Failed to generate blog' });
+        }
+
+        const result = await response.json();
 
         // Save blog
         const newBlog = {

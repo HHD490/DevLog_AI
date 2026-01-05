@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { db, schema } from '../db';
 import { eq, desc, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
-import { aiService } from '../services/geminiService';
 
 const router = Router();
 
@@ -157,22 +156,28 @@ router.post('/:id/messages', async (req, res) => {
         // Reverse to get chronological order
         const contextMessages = recentMessages.reverse();
 
-        // Get logs for RAG context
-        const allLogs = await db.select().from(schema.logs).orderBy(desc(schema.logs.timestamp)).limit(100);
-        const logsContext = allLogs.map(l => ({
-            timestamp: l.timestamp,
-            content: l.content,
-            tags: JSON.parse(l.tagsJson || '[]')
-        }));
+        // Proxy to Python Agent for AI response
+        const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
 
-        // Generate AI response with context
-        const aiResponse = await aiService.askBrainWithContext(
-            contextMessages.map(m => ({
-                role: m.role as 'user' | 'assistant',
-                content: m.content
-            })),
-            logsContext
-        );
+        const agentResponse = await fetch(`${PYTHON_BACKEND_URL}/agent/ask`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                query: content.trim(),
+                conversation_history: contextMessages.map(m => ({
+                    role: m.role,
+                    content: m.content
+                }))
+            })
+        });
+
+        let aiResponse = "I couldn't generate a response.";
+        if (agentResponse.ok) {
+            const data = await agentResponse.json();
+            aiResponse = data.answer || aiResponse;
+        } else {
+            console.error('[Conversations] Agent request failed:', await agentResponse.text());
+        }
 
         // Save AI response
         const aiMessageId = uuidv4();
@@ -196,10 +201,17 @@ router.post('/:id/messages', async (req, res) => {
 
         if (messageCount.length === 2) { // First user + first AI response
             try {
-                const title = await aiService.generateConversationTitle(content.trim());
-                await db.update(schema.conversations)
-                    .set({ title })
-                    .where(eq(schema.conversations.id, id));
+                const titleResponse = await fetch(`${PYTHON_BACKEND_URL}/ai/title`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: content.trim() })
+                });
+                if (titleResponse.ok) {
+                    const { title } = await titleResponse.json();
+                    await db.update(schema.conversations)
+                        .set({ title })
+                        .where(eq(schema.conversations.id, id));
+                }
             } catch (e) {
                 console.error('Failed to generate title:', e);
             }

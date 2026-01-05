@@ -19,19 +19,17 @@ import graphRoutes from './routes/graph';
 // Import scheduler
 import { initScheduler } from './services/schedulerService';
 
-// Import AI provider for status
-import { getCurrentProviderName } from './services/aiProvider';
-
 // Initialize database (this creates tables if they don't exist)
 import { db, schema } from './db';
 import { sql } from 'drizzle-orm';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json());
 
 // Request logging
 app.use((req, res, next) => {
@@ -42,7 +40,7 @@ app.use((req, res, next) => {
 // API Routes
 app.use('/api/logs', logsRoutes);
 app.use('/api/summaries', summariesRoutes);
-app.use('/api/skills', skillTreeRoutes);
+app.use('/api/skillTree', skillTreeRoutes);
 app.use('/api/blogs', blogsRoutes);
 app.use('/api/brain', brainRoutes);
 app.use('/api/processing', processingRoutes);
@@ -51,13 +49,26 @@ app.use('/api/conversations', conversationsRoutes);
 app.use('/api/graph', graphRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    aiProvider: getCurrentProviderName()
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    // Check Python backend health
+    const pythonHealth = await fetch(`${PYTHON_BACKEND_URL}/health`).then(r => r.json()).catch(() => null);
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      aiProvider: pythonHealth?.services?.ai?.llm_provider || 'Python Backend Unavailable',
+      pythonBackend: pythonHealth ? 'connected' : 'disconnected'
+    });
+  } catch (e) {
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      aiProvider: 'Python Backend',
+      pythonBackend: 'disconnected'
+    });
+  }
 });
 
 // Initialize database tables

@@ -1,8 +1,14 @@
+/**
+ * Skill Tree Service
+ * AI calls proxied to Python backend
+ */
+
 import { db, schema } from '../db';
 import { eq, and, inArray, sql } from 'drizzle-orm';
-import { geminiService } from './geminiService';
 import { Skill } from './types';
 import { v4 as uuidv4 } from 'uuid';
+
+const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
 
 /**
  * Generate or update skill tree based on unprocessed logs and summaries.
@@ -38,31 +44,37 @@ export async function generateSkillTree(): Promise<{
     // 3. Get existing skill tree
     const existingSkillTree = await db.select().from(schema.skillTree);
 
-    // 4. Call AI to analyze
-    const result = await geminiService.analyzeForSkillTree({
-        newLogs: unprocessedLogs.map(l => ({
-            id: l.id,
-            content: l.content,
-            tagsJson: l.tagsJson || '[]',
-            timestamp: l.timestamp
-        })),
-        newSummaries: unprocessedSummaries.map(s => ({
-            date: s.date,
-            content: s.content,
-            techStackJson: s.techStackJson || '[]'
-        })),
-        existingSkillTree: existingSkillTree.map(s => ({
-            id: s.id,
-            name: s.name,
-            category: s.category as Skill['category'],
-            maturityLevel: s.maturityLevel,
-            workExamples: JSON.parse(s.workExamplesJson || '[]'),
-            relatedLogs: JSON.parse(s.relatedLogsJson || '[]'),
-            firstSeen: s.firstSeen || new Date(),
-            lastUpdated: s.lastUpdated || new Date()
-        }))
+    // 4. Call Python backend for AI analysis
+    const response = await fetch(`${PYTHON_BACKEND_URL}/ai/skills`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            new_logs: unprocessedLogs.map(l => ({
+                id: l.id,
+                content: l.content,
+                tags_json: l.tagsJson || '[]',
+                timestamp: l.timestamp
+            })),
+            new_summaries: unprocessedSummaries.map(s => ({
+                date: s.date,
+                content: s.content,
+                tech_stack_json: s.techStackJson || '[]'
+            })),
+            existing_skill_tree: existingSkillTree.map(s => ({
+                name: s.name,
+                category: s.category,
+                maturity_level: s.maturityLevel
+            }))
+        })
     });
 
+    if (!response.ok) {
+        const error = await response.text();
+        console.error('[SkillTree] Python backend error:', error);
+        throw new Error('Failed to analyze skills');
+    }
+
+    const result = await response.json();
     let newSkillsCount = 0;
     let updatedSkillsCount = 0;
 
@@ -75,12 +87,12 @@ export async function generateSkillTree(): Promise<{
         if (existing) {
             // Update existing skill
             const existingExamples = JSON.parse(existing.workExamplesJson || '[]');
-            const newExamples = skill.workExamples || [];
+            const newExamples = skill.work_examples || [];
             const mergedExamples = [...new Set([...existingExamples, ...newExamples])].slice(0, 10);
 
             await db.update(schema.skillTree)
                 .set({
-                    maturityLevel: Math.max(existing.maturityLevel, skill.maturityLevel || 1),
+                    maturityLevel: Math.max(existing.maturityLevel, skill.maturity_level || 1),
                     workExamplesJson: JSON.stringify(mergedExamples),
                     lastUpdated: new Date()
                 })
@@ -93,8 +105,8 @@ export async function generateSkillTree(): Promise<{
                 id: uuidv4(),
                 name: skill.name,
                 category: skill.category || 'Other',
-                maturityLevel: skill.maturityLevel || 1,
-                workExamplesJson: JSON.stringify(skill.workExamples || []),
+                maturityLevel: skill.maturity_level || 1,
+                workExamplesJson: JSON.stringify(skill.work_examples || []),
                 relatedLogsJson: JSON.stringify([]),
                 firstSeen: new Date(),
                 lastUpdated: new Date()
