@@ -154,9 +154,81 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
                 </div>
             );
 
-            // Horizontal rule
-        } else if (line.trim() === '---' || line.trim() === '***' || line.trim() === '___') {
+            // Horizontal rule (but not table separator)
+        } else if ((line.trim() === '---' || line.trim() === '***' || line.trim() === '___') && !line.includes('|')) {
             elements.push(<hr key={i} className="my-6 border-slate-200" />);
+
+            // Tables: detect table start (line with | characters)
+        } else if (trimmedLine.includes('|') && trimmedLine.startsWith('|')) {
+            const tableRows: string[][] = [];
+            let hasHeader = false;
+
+            // Collect all table rows
+            while (i < lines.length) {
+                const tableLine = lines[i].trim();
+                if (!tableLine.includes('|')) break;
+
+                // Parse cells: split by |, remove empty first/last from leading/trailing |
+                const cells = tableLine.split('|')
+                    .map(cell => cell.trim())
+                    .filter((_, idx, arr) => idx !== 0 && idx !== arr.length - 1 || arr[idx] !== '');
+
+                // Clean up: remove empty strings at start/end caused by | at line boundaries
+                const cleanCells = tableLine.startsWith('|') && tableLine.endsWith('|')
+                    ? tableLine.slice(1, -1).split('|').map(c => c.trim())
+                    : cells;
+
+                // Check if this is a separator row (|---|---|)
+                if (cleanCells.every(cell => /^[-:]+$/.test(cell))) {
+                    hasHeader = true;
+                    i++;
+                    continue;
+                }
+
+                tableRows.push(cleanCells);
+                i++;
+            }
+
+            if (tableRows.length > 0) {
+                const headerRow = hasHeader ? tableRows[0] : null;
+                const bodyRows = hasHeader ? tableRows.slice(1) : tableRows;
+
+                elements.push(
+                    <div key={`table-${i}`} className="my-4 overflow-x-auto">
+                        <table className="min-w-full border-collapse border border-slate-300 text-sm">
+                            {headerRow && (
+                                <thead className="bg-slate-100">
+                                    <tr>
+                                        {headerRow.map((cell, cellIdx) => (
+                                            <th
+                                                key={cellIdx}
+                                                className="border border-slate-300 px-3 py-2 text-left font-semibold text-slate-700"
+                                            >
+                                                {renderInlineMarkdown(cell)}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                            )}
+                            <tbody>
+                                {bodyRows.map((row, rowIdx) => (
+                                    <tr key={rowIdx} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                        {row.map((cell, cellIdx) => (
+                                            <td
+                                                key={cellIdx}
+                                                className="border border-slate-300 px-3 py-2 text-slate-600"
+                                            >
+                                                {renderInlineMarkdown(cell)}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                );
+            }
+            continue;
 
             // Empty lines
         } else if (line.trim() === '') {
